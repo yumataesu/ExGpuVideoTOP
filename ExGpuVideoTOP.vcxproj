@@ -88,10 +88,14 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\ExGpuVideoTOP.cpp" />
+    <ClCompile Include="src\ExtremeGpuVideo\GpuVideoReader.cpp" />
     <ClCompile Include="src\FrameQueue.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\ExGpuVideoTOP.h" />
+    <ClInclude Include="src\ExtremeGpuVideo\GpuVideo.h" />
+    <ClInclude Include="src\ExtremeGpuVideo\GpuVideoIO.h" />
+    <ClInclude Include="src\ExtremeGpuVideo\GpuVideoReader.h" />
     <ClInclude Include="src\FrameQueue.h" />
     <ClInclude Include="src\GL_Extensions.h" />
     <ClInclude Include="src\TOP_CPlusPlusBase.h" />

@@ -22,7 +22,7 @@
 #include <chrono>
 
 // Uncomment this if you want to run an example that fills the data using threading
-#define THREADING_EXAMPLE
+//#define THREADING_EXAMPLE
 
 // The threading example can run in two modes. One where the producer is continually
 // producing new frames that the consumer (main thread) picks up when able.
@@ -78,7 +78,7 @@ FillTOPPluginInfo(TOP_PluginInfo *info)
 
 DLLEXPORT
 TOP_CPlusPlusBase*
-CreateTOPInstance(const OP_NodeInfo* info, TOP_Context* context)
+CreateTOPInstance(const OP_NodeInfo* info)
 {
 	// Return a new instance of your class every time this is called.
 	// It will be called once per TOP that is using the .dll
@@ -99,51 +99,33 @@ DestroyTOPInstance(TOP_CPlusPlusBase* instance, TOP_Context *context)
 
 
 
-ExGpuVideoTOP::ExGpuVideoTOP(const OP_NodeInfo* info) : 
-	myNodeInfo(info),
-	myThread(nullptr),
-	myThreadShouldExit(false),
-	myStartWork(false)
+ExGpuVideoTOP::ExGpuVideoTOP(const OP_NodeInfo* info)
+	: myNodeInfo(info)
+	, myThread(nullptr)
+	, myThreadShouldExit(false)
+	, myStartWork(false)
+	, isLoaded_(false)
+	, width_(0.f)
+	, height_(0.f)
 {
 	myExecuteCount = 0;
 	myStep = 0.0;
 	myBrightness = 1.0;
 
-	std::string path = "Transvolt_12.gvintermediate.gv";
-	std::shared_ptr<IGpuVideoReader> reader = std::make_shared<GpuVideoReader>(path.c_str(), false);
-
-	std::cout << "width : " << reader->getWidth() << std::endl;
-	std::cout << "header : " << reader->getHeight() << std::endl;
 }
 
 ExGpuVideoTOP::~ExGpuVideoTOP()
 {
-#ifdef THREADING_EXAMPLE
-	if (myThread)
-	{
-		myThreadShouldExit.store(true);
-		// Incase the thread is sleeping waiting for a signal
-		// to create more work, wake it up
-		startMoreWork();
-		if (myThread->joinable())
-		{
-			myThread->join();
-		}
-		delete myThread;
-	}
-#endif
 
 }
 
-void
-ExGpuVideoTOP::getGeneralInfo(TOP_GeneralInfo* ginfo, const OP_Inputs* inputs, void* reserved1)
+void ExGpuVideoTOP::getGeneralInfo(TOP_GeneralInfo* ginfo, const OP_Inputs* inputs, void* reserved1)
 {
 	ginfo->cookEveryFrame = true;
     ginfo->memPixelType = OP_CPUMemPixelType::RGBA32Float;
 }
 
-bool
-ExGpuVideoTOP::getOutputFormat(TOP_OutputFormat* format, const OP_Inputs* inputs, void* reserved1)
+bool ExGpuVideoTOP::getOutputFormat(TOP_OutputFormat* format, const OP_Inputs* inputs, void* reserved1)
 {
 	// In this function we could assign variable values to 'format' to specify
 	// the pixel format/resolution etc that we want to output to.
@@ -154,99 +136,18 @@ ExGpuVideoTOP::getOutputFormat(TOP_OutputFormat* format, const OP_Inputs* inputs
 }
 
 
-void
-ExGpuVideoTOP::execute(TOP_OutputFormatSpecs* output,
+void ExGpuVideoTOP::execute(TOP_OutputFormatSpecs* output,
 						const OP_Inputs* inputs,
 						TOP_Context *context,
 						void* reserved1)
 {
 	myExecuteCount++;
 
-
-#ifdef THREADING_EXAMPLE
-	mySettingsLock.lock();
-#endif
-
-	double speed = inputs->getParDouble("Speed");
-	mySpeed = speed;
+	//double speed = inputs->getParDouble("Speed");
+	//mySpeed = speed;
 
 	myBrightness = inputs->getParDouble("Brightness");
 
-	// See comments at the top of this file to information about the threading
-	// example mode for this project.
-#ifdef THREADING_EXAMPLE
-	mySettingsLock.unlock();
-
-	// This syncs up the buffers in the frame queue with what the
-	// node is offering
-	myFrameQueue.sync(output);
-
-	if (!myThread)
-	{
-		myThread = new std::thread(
-			[this]()
-			{
-				std::random_device rd;
-				std::mt19937 mt(rd());
-
-				// We are going to generate new frame data at irregular interval
-				std::uniform_real_distribution<double> dist(10.0, 40.0);
-
-				// Exit when our owner tells us to
-				while (!this->myThreadShouldExit)
-				{
-#ifdef THREADING_SIGNALED_PRODUCER
-					this->waitForMoreWork();
-					// We may be waking up because the owner is trying to shut down
-					if (myThreadShouldExit)
-					{
-						break;
-					}
-#else
-					auto begin = std::chrono::steady_clock::now();
-#endif
-
-					int width, height;
-					void *buf = this->myFrameQueue.getBufferForUpdate(&width, &height);
-
-					// If there is a buffer to update
-					if (buf)
-					{
-						this->mySettingsLock.lock();
-						myStep += mySpeed;
-						double brightness = myBrightness;
-						this->mySettingsLock.unlock();
-
-						ExGpuVideoTOP::fillBuffer((float*)buf, width, height, myStep, brightness);
-
-
-						this->myFrameQueue.updateComplete();
-					}
-
-#ifndef THREADING_SIGNALED_PRODUCER
-					auto end = std::chrono::steady_clock::now();
-					auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
-
-					// Sleep for a 15.5ms. We want our loops to be 16.666ms, so this give some wiggle wrong.
-					// In almost all cases we wouldn't be manually sleeping, but instead sleeping
-					// using a function from the SDK of the device that we are reading.
-					std::this_thread::sleep_for(std::chrono::microseconds(15500 - duration));
-#endif
-				}
-			});
-	}
-
-	// Tries to assign a buffer to be uploaded to the TOP
-	myFrameQueue.sendBufferForUpload(output);
-
-#ifdef THREADING_SIGNALED_PRODUCER
-	// Tell the thread to make another frame
-	startMoreWork();
-#endif
-
-#else
-
-	myStep += speed;
     int textureMemoryLocation = 0;
     float* mem = (float*)output->cpuPixelData[textureMemoryLocation];
 
@@ -255,25 +156,17 @@ ExGpuVideoTOP::execute(TOP_OutputFormatSpecs* output,
 	// Tell the TOP which buffer to upload. In this simple example we are always filling and uploading buffer 0
     output->newCPUPixelDataLocation = textureMemoryLocation;
 
-#endif
-
 }
 
-void
-ExGpuVideoTOP::fillBuffer(float *mem, int width, int height, double step, double brightness)
+void ExGpuVideoTOP::fillBuffer(float *mem, int width, int height, double step, double brightness)
 {
 
-	int xstep = (int)(fmod(step, width));
-	int ystep = (int)(fmod(step, height));
-
-	if (xstep < 0)
-		xstep += width;
-
-	if (ystep < 0)
-		ystep += height;
-
-
-
+	//int xstep = (int)(fmod(step, width));
+	//int ystep = (int)(fmod(step, height));
+	//if (xstep < 0)
+	//	xstep += width;
+	//if (ystep < 0)
+	//	ystep += height;
 
     for (int y = 0; y < height; ++y)
     {
@@ -282,16 +175,15 @@ ExGpuVideoTOP::fillBuffer(float *mem, int width, int height, double step, double
             float* pixel = &mem[4*(y*width + x)];
 
 			// RGBA
-            pixel[0] = (x > xstep) * (float)brightness;
-            pixel[1] = (y > ystep) * (float)brightness;
-			pixel[2] = ((float)(xstep % 50) / 50.0f) * (float)brightness;
+            pixel[0] = (float)y / (float)height;
+            pixel[1] = (float)x / (float)width;;
+			pixel[2] = 0.5;
             pixel[3] = 1;
         }
     }
 }
 
-void
-ExGpuVideoTOP::startMoreWork()
+void ExGpuVideoTOP::startMoreWork()
 {
 	{
 		std::unique_lock<std::mutex> lck(myConditionLock);
@@ -300,24 +192,21 @@ ExGpuVideoTOP::startMoreWork()
 	myCondition.notify_one();
 }
 
-void
-ExGpuVideoTOP::waitForMoreWork()
+void ExGpuVideoTOP::waitForMoreWork()
 {
 	std::unique_lock<std::mutex> lck(myConditionLock);
 	myCondition.wait(lck, [this]() { return this->myStartWork.load(); });
 	myStartWork = false;
 }
 
-int32_t
-ExGpuVideoTOP::getNumInfoCHOPChans(void *reserved1)
+int32_t ExGpuVideoTOP::getNumInfoCHOPChans(void *reserved1)
 {
 	// We return the number of channel we want to output to any Info CHOP
 	// connected to the TOP. In this example we are just going to send one channel.
 	return 2;
 }
 
-void
-ExGpuVideoTOP::getInfoCHOPChan(int32_t index, OP_InfoCHOPChan* chan, void* reserved1)
+void ExGpuVideoTOP::getInfoCHOPChan(int32_t index, OP_InfoCHOPChan* chan, void* reserved1)
 {
 	// This function will be called once for each channel we said we'd want to return
 	// In this example it'll only be called once.
@@ -335,8 +224,7 @@ ExGpuVideoTOP::getInfoCHOPChan(int32_t index, OP_InfoCHOPChan* chan, void* reser
 	}
 }
 
-bool		
-ExGpuVideoTOP::getInfoDATSize(OP_InfoDATSize* infoSize, void* reserved1)
+bool ExGpuVideoTOP::getInfoDATSize(OP_InfoDATSize* infoSize, void* reserved1)
 {
 	infoSize->rows = 2;
 	infoSize->cols = 2;
@@ -346,8 +234,7 @@ ExGpuVideoTOP::getInfoDATSize(OP_InfoDATSize* infoSize, void* reserved1)
 	return true;
 }
 
-void
-ExGpuVideoTOP::getInfoDATEntries(int32_t index,
+void ExGpuVideoTOP::getInfoDATEntries(int32_t index,
 								int32_t nEntries,
 								OP_InfoDATEntries* entries,
 								void *reserved1)
@@ -356,43 +243,24 @@ ExGpuVideoTOP::getInfoDATEntries(int32_t index,
 
 	if (index == 0)
 	{
-        // Set the value for the first column
-#ifdef _WIN32
         strcpy_s(tempBuffer, "executeCount");
-#else // macOS
-        strlcpy(tempBuffer, "executeCount", sizeof(tempBuffer));
-#endif
         entries->values[0]->setString(tempBuffer);
 
-        // Set the value for the second column
-#ifdef _WIN32
         sprintf_s(tempBuffer, "%d", myExecuteCount);
-#else // macOS
-        snprintf(tempBuffer, sizeof(tempBuffer), "%d", myExecuteCount);
-#endif
         entries->values[1]->setString(tempBuffer);
 	}
 
 	if (index == 1)
 	{
-#ifdef _WIN32
 		strcpy_s(tempBuffer, "step");
-#else // macOS
-        strlcpy(tempBuffer, "step", sizeof(tempBuffer));
-#endif
 		entries->values[0]->setString(tempBuffer);
 
-#ifdef _WIN32
 		sprintf_s(tempBuffer, "%g", myStep);
-#else // macOS
-        snprintf(tempBuffer, sizeof(tempBuffer), "%g", myStep);
-#endif
 		entries->values[1]->setString(tempBuffer);
 	}
 }
 
-void
-ExGpuVideoTOP::setupParameters(OP_ParameterManager* manager, void *reserved1)
+void ExGpuVideoTOP::setupParameters(OP_ParameterManager* manager, void *reserved1)
 {
 	// brightness
 	{
@@ -415,41 +283,52 @@ ExGpuVideoTOP::setupParameters(OP_ParameterManager* manager, void *reserved1)
 		assert(res == OP_ParAppendResult::Success);
 	}
 
-	// speed
+	// Load pulse
 	{
 		OP_NumericParameter	np;
-
-		np.name = "Speed";
-		np.label = "Speed";
-		np.defaultValues[0] = 1.0;
-		np.minSliders[0] = -10.0;
-		np.maxSliders[0] =  10.0;
-		
-		OP_ParAppendResult res = manager->appendFloat(np);
-		assert(res == OP_ParAppendResult::Success);
-	}
-
-	// pulse
-	{
-		OP_NumericParameter	np;
-
-		np.name = "Reset";
-		np.label = "Reset";
-		
+		np.name = "Load";
+		np.label = "Load";
 		OP_ParAppendResult res = manager->appendPulse(np);
 		assert(res == OP_ParAppendResult::Success);
 	}
 
+	// Unload pulse
+	{
+		OP_NumericParameter	np;
+		np.name = "Unload";
+		np.label = "Unload";
+		OP_ParAppendResult res = manager->appendPulse(np);
+		assert(res == OP_ParAppendResult::Success);
+	}
 }
 
-void
-ExGpuVideoTOP::pulsePressed(const char* name, void *reserved1)
+void ExGpuVideoTOP::pulsePressed(const char* name, void *reserved1)
 {
-	if (!strcmp(name, "Reset"))
+
+	if (strcmp(name, "Load") == 0 && !isLoaded_)
 	{
-		myStep = 0.0;
+		std::cout << "pulsePressed : " << name << std::endl;
+		std::string path = "Transvolt_12.gvintermediate.gv";
+		reader_ = std::make_shared<GpuVideoReader>(path.c_str(), false);
+
+		width_ = reader_->getWidth();
+		height_ = reader_->getHeight();
+
+		std::cout << "width : " << width_ << std::endl;
+		std::cout << "header : " << height_ << std::endl;
+		std::cout << "frame count : " << reader_->getFrameCount() << std::endl;
+		std::cout << "fps : " << reader_->getFramePerSecond() << std::endl;
+		std::cout << "==================" << std::endl;
+
+		isLoaded_ = true;
 	}
 
+
+	if (strcmp(name, "Unload") == 0 && isLoaded_)
+	{
+		std::cout << "pulsePressed : " << name << std::endl;
+		isLoaded_ = false;
+	}
 
 }
 
