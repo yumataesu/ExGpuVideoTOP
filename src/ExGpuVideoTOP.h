@@ -12,27 +12,9 @@
 * prior written permission from Derivative.
 */
 
-#include "TOP_CPlusPlusBase.h"
-#include "FrameQueue.h"
-#include <thread>
-#include <atomic>
-
 #include <iostream>
-#include <thread>
-#include <cstdlib>
-#include <vector>
-#include <memory>
-#include <cstdio>
-#include <cstdint>
-#include <stdexcept>
-#include <cassert>
-#include <algorithm>
-#include "lz4.h"
 
-#ifndef _MSC_VER
-#define _FILE_OFFSET_BITS 64
-#else
-#endif
+#include "TOP_CPlusPlusBase.h"
 
 #include "ExtremeGpuVideo/GpuVideo.h"
 #include "ExtremeGpuVideo/GpuVideoIO.h"
@@ -41,19 +23,14 @@
 class ExGpuVideoTOP : public TOP_CPlusPlusBase
 {
 public:
-    ExGpuVideoTOP(const OP_NodeInfo *info);
+    ExGpuVideoTOP(const OP_NodeInfo *info, TOP_Context* context);
     virtual ~ExGpuVideoTOP();
 
     virtual void		getGeneralInfo(TOP_GeneralInfo *, const OP_Inputs*, void*) override;
     virtual bool		getOutputFormat(TOP_OutputFormat*, const OP_Inputs*, void*) override;
 
 
-    virtual void		execute(TOP_OutputFormatSpecs*,
-							const OP_Inputs*,
-							TOP_Context* context,
-							void* reserved1) override;
-
-	static void fillBuffer(float * mem, int width, int height, double step, double brightness);
+    virtual void		execute(TOP_OutputFormatSpecs* outputFormat, const OP_Inputs* inputs, TOP_Context* context, void* reserved1) override;
 
 
     virtual int32_t		getNumInfoCHOPChans(void *reserved1) override;
@@ -69,8 +46,6 @@ public:
 	virtual void		setupParameters(OP_ParameterManager *manager, void *reserved1) override;
 	virtual void		pulsePressed(const char *name, void *reserved1) override;
 
-	void				waitForMoreWork();
-
 private:
 
 	void				startMoreWork();
@@ -82,22 +57,7 @@ private:
     // In this example this value will be incremented each time the execute()
     // function is called, then passes back to the TOP 
     int					myExecuteCount;
-
-	std::mutex			mySettingsLock;
-	double				myStep;
-	double				mySpeed;
 	double				myBrightness;
-
-	// Used for threading example
-	// Search for #define THREADING_EXAMPLE to enable that example
-	FrameQueue			myFrameQueue;
-	std::thread*		myThread;
-	std::atomic<bool>	myThreadShouldExit;
-
-	std::condition_variable	myCondition;
-	std::mutex			myConditionLock;
-	std::atomic<bool>	myStartWork;
-
 
 	int width_, height_;
 	std::shared_ptr<IGpuVideoReader> reader_;

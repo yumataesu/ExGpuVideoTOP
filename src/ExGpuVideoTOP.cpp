@@ -12,31 +12,24 @@
 * prior written permission from Derivative.
 */
 
+static const char* vertexShader = "#version 330\n\
+uniform mat4 uModelView; \
+in vec3 P; \
+void main() { \
+    gl_Position = vec4(P, 1) * uModelView; \
+}";
+
+static const char* fragmentShader = "#version 330\n\
+uniform vec4 uColor; \
+out vec4 finalColor; \
+void main() { \
+    finalColor = uColor; \
+}";
+
+static const char* uniformError = "A uniform location could not be found.";
+
+
 #include "ExGpuVideoTOP.h"
-
-#include <stdio.h>
-#include <string.h>
-#include <assert.h>
-#include <cmath>
-#include <random>
-#include <chrono>
-
-// Uncomment this if you want to run an example that fills the data using threading
-//#define THREADING_EXAMPLE
-
-// The threading example can run in two modes. One where the producer is continually
-// producing new frames that the consumer (main thread) picks up when able.
-// This more is useful for things such as external device input. This is the default
-// mode.
-
-// The second mode can be instead used by defining THREADING_SINGLED_PRODUCER.
-// (I.e Uncommenting the below line)
-// In this mode the main thread will signal to the producer thread to generate a new
-// frame each time it consumes a frame.
-// Assuming the producer will generate a new frame in time before execute() gets called
-// again this gives a better 1:1 sync between producing and consuming frames.
-
-//#define THREADING_SIGNALED_PRODUCER
 
 
 // These functions are basic C function, which the DLL loader can find
@@ -54,7 +47,7 @@ FillTOPPluginInfo(TOP_PluginInfo *info)
 	info->apiVersion = TOPCPlusPlusAPIVersion;
 
 	// Change this to change the executeMode behavior of this plugin.
-	info->executeMode = TOP_ExecuteMode::CPUMemWriteOnly;
+	info->executeMode = TOP_ExecuteMode::OpenGL_FBO;
 
 	// The opType is the unique name for this TOP. It must start with a 
 	// capital A-Z character, and all the following characters must lower case
@@ -78,11 +71,11 @@ FillTOPPluginInfo(TOP_PluginInfo *info)
 
 DLLEXPORT
 TOP_CPlusPlusBase*
-CreateTOPInstance(const OP_NodeInfo* info)
+CreateTOPInstance(const OP_NodeInfo* info, TOP_Context* context)
 {
 	// Return a new instance of your class every time this is called.
 	// It will be called once per TOP that is using the .dll
-	return new ExGpuVideoTOP(info);
+	return new ExGpuVideoTOP(info, context);
 }
 
 DLLEXPORT
@@ -92,25 +85,38 @@ DestroyTOPInstance(TOP_CPlusPlusBase* instance, TOP_Context *context)
 	// Delete the instance here, this will be called when
 	// Touch is shutting down, when the TOP using that instance is deleted, or
 	// if the TOP loads a different DLL
+	context->beginGLCommands();
+
 	delete (ExGpuVideoTOP*)instance;
+
+	context->endGLCommands();
 }
 
 };
 
 
 
-ExGpuVideoTOP::ExGpuVideoTOP(const OP_NodeInfo* info)
+ExGpuVideoTOP::ExGpuVideoTOP(const OP_NodeInfo* info, TOP_Context* context)
 	: myNodeInfo(info)
-	, myThread(nullptr)
-	, myThreadShouldExit(false)
-	, myStartWork(false)
 	, isLoaded_(false)
 	, width_(0.f)
 	, height_(0.f)
+	, myExecuteCount(0)
+	, myBrightness(1.f)
 {
-	myExecuteCount = 0;
-	myStep = 0.0;
-	myBrightness = 1.0;
+
+	// GLEW is global static function pointers, only needs to be inited once,
+	// and only on Windows.
+	
+	static bool needGLEWInit = true;
+	if (needGLEWInit)
+	{
+		needGLEWInit = false;
+		context->beginGLCommands();
+		// Setup all our GL extensions using GLEW
+		//glewInit();
+		context->endGLCommands();
+	}
 
 }
 
@@ -136,67 +142,29 @@ bool ExGpuVideoTOP::getOutputFormat(TOP_OutputFormat* format, const OP_Inputs* i
 }
 
 
-void ExGpuVideoTOP::execute(TOP_OutputFormatSpecs* output,
-						const OP_Inputs* inputs,
-						TOP_Context *context,
-						void* reserved1)
+void ExGpuVideoTOP::execute(TOP_OutputFormatSpecs* outputFormat, const OP_Inputs* inputs, TOP_Context* context, void* reserved1)
 {
-	myExecuteCount++;
-
-	//double speed = inputs->getParDouble("Speed");
-	//mySpeed = speed;
+	int width = outputFormat->width;
+	int height = outputFormat->height;
 
 	myBrightness = inputs->getParDouble("Brightness");
 
-    int textureMemoryLocation = 0;
-    float* mem = (float*)output->cpuPixelData[textureMemoryLocation];
+	context->beginGLCommands();
+	glViewport(0, 0, width, height);
+	glClearColor(0.0, myBrightness, 0.0, 0.0);
+	glClear(GL_COLOR_BUFFER_BIT);
+	context->endGLCommands();
 
-	fillBuffer(mem, output->width, output->height, myStep, myBrightness);
-
-	// Tell the TOP which buffer to upload. In this simple example we are always filling and uploading buffer 0
-    output->newCPUPixelDataLocation = textureMemoryLocation;
-
-}
-
-void ExGpuVideoTOP::fillBuffer(float *mem, int width, int height, double step, double brightness)
-{
-
-	//int xstep = (int)(fmod(step, width));
-	//int ystep = (int)(fmod(step, height));
-	//if (xstep < 0)
-	//	xstep += width;
-	//if (ystep < 0)
-	//	ystep += height;
-
-    for (int y = 0; y < height; ++y)
-    {
-        for (int x = 0; x < width; ++x)
-        {
-            float* pixel = &mem[4*(y*width + x)];
-
-			// RGBA
-            pixel[0] = (float)y / (float)height;
-            pixel[1] = (float)x / (float)width;;
-			pixel[2] = 0.5;
-            pixel[3] = 1;
-        }
-    }
+	myExecuteCount++;
 }
 
 void ExGpuVideoTOP::startMoreWork()
 {
-	{
-		std::unique_lock<std::mutex> lck(myConditionLock);
-		myStartWork = true;
-	}
-	myCondition.notify_one();
-}
-
-void ExGpuVideoTOP::waitForMoreWork()
-{
-	std::unique_lock<std::mutex> lck(myConditionLock);
-	myCondition.wait(lck, [this]() { return this->myStartWork.load(); });
-	myStartWork = false;
+	//{
+	//	std::unique_lock<std::mutex> lck(myConditionLock);
+	//	myStartWork = true;
+	//}
+	//myCondition.notify_one();
 }
 
 int32_t ExGpuVideoTOP::getNumInfoCHOPChans(void *reserved1)
@@ -215,12 +183,6 @@ void ExGpuVideoTOP::getInfoCHOPChan(int32_t index, OP_InfoCHOPChan* chan, void* 
 	{
 		chan->name->setString("executeCount");
 		chan->value = (float)myExecuteCount;
-	}
-
-	if (index == 1)
-	{
-		chan->name->setString("step");
-		chan->value = (float)myStep;
 	}
 }
 
@@ -254,9 +216,6 @@ void ExGpuVideoTOP::getInfoDATEntries(int32_t index,
 	{
 		strcpy_s(tempBuffer, "step");
 		entries->values[0]->setString(tempBuffer);
-
-		sprintf_s(tempBuffer, "%g", myStep);
-		entries->values[1]->setString(tempBuffer);
 	}
 }
 

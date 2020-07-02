@@ -75,28 +75,28 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <AdditionalIncludeDirectories>libs/lz4/include;C:\Users\YumaTaesu\Documents\TouchDesigner-Plugin-Template\libs\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>libs/lz4/include;libs/glew/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>OpenGL32.lib;liblz4.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>liblz4.lib;OpenGL32.lib;glew32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OptimizeReferences>true</OptimizeReferences>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
-      <AdditionalLibraryDirectories>libs/lz4/lib/Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>libs/lz4/lib/Release;libs/glew/lib/Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\ExGpuVideoTOP.cpp" />
     <ClCompile Include="src\ExtremeGpuVideo\GpuVideoReader.cpp" />
-    <ClCompile Include="src\FrameQueue.cpp" />
+    <ClCompile Include="src\GL\Program.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\ExGpuVideoTOP.h" />
     <ClInclude Include="src\ExtremeGpuVideo\GpuVideo.h" />
     <ClInclude Include="src\ExtremeGpuVideo\GpuVideoIO.h" />
     <ClInclude Include="src\ExtremeGpuVideo\GpuVideoReader.h" />
-    <ClInclude Include="src\FrameQueue.h" />
+    <ClInclude Include="src\GL\Program.h" />
     <ClInclude Include="src\GL_Extensions.h" />
     <ClInclude Include="src\TOP_CPlusPlusBase.h" />
     <ClInclude Include="src\CPlusPlus_Common.h" />
