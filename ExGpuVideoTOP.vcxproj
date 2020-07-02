@@ -87,11 +87,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="src\CPUMemoryTOP.cpp" />
+    <ClCompile Include="src\ExGpuVideoTOP.cpp" />
     <ClCompile Include="src\FrameQueue.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\CPUMemoryTOP.h" />
+    <ClInclude Include="src\ExGpuVideoTOP.h" />
     <ClInclude Include="src\FrameQueue.h" />
     <ClInclude Include="src\GL_Extensions.h" />
     <ClInclude Include="src\TOP_CPlusPlusBase.h" />

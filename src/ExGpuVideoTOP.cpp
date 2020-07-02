@@ -12,7 +12,7 @@
 * prior written permission from Derivative.
 */
 
-#include "CPUMemoryTOP.h"
+#include "ExGpuVideoTOP.h"
 
 #include <stdio.h>
 #include <string.h>
