@@ -87,15 +87,15 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="CPUMemoryTOP.cpp" />
-    <ClCompile Include="FrameQueue.cpp" />
+    <ClCompile Include="src\CPUMemoryTOP.cpp" />
+    <ClCompile Include="src\FrameQueue.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="CPUMemoryTOP.h" />
-    <ClInclude Include="FrameQueue.h" />
-    <ClInclude Include="GL_Extensions.h" />
-    <ClInclude Include="TOP_CPlusPlusBase.h" />
-    <ClInclude Include="CPlusPlus_Common.h" />
+    <ClInclude Include="src\CPUMemoryTOP.h" />
+    <ClInclude Include="src\FrameQueue.h" />
+    <ClInclude Include="src\GL_Extensions.h" />
+    <ClInclude Include="src\TOP_CPlusPlusBase.h" />
+    <ClInclude Include="src\CPlusPlus_Common.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
