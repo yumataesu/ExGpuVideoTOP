@@ -15,6 +15,7 @@
 #include <iostream>
 
 #include "TOP_CPlusPlusBase.h"
+#include "GL/Program.h"
 
 #include "ExtremeGpuVideo/GpuVideo.h"
 #include "ExtremeGpuVideo/GpuVideoIO.h"
@@ -23,41 +24,52 @@
 class ExGpuVideoTOP : public TOP_CPlusPlusBase
 {
 public:
-    ExGpuVideoTOP(const OP_NodeInfo *info, TOP_Context* context);
-    virtual ~ExGpuVideoTOP();
+	ExGpuVideoTOP(const OP_NodeInfo *info, TOP_Context *context);
+	virtual ~ExGpuVideoTOP();
 
-    virtual void		getGeneralInfo(TOP_GeneralInfo *, const OP_Inputs*, void*) override;
-    virtual bool		getOutputFormat(TOP_OutputFormat*, const OP_Inputs*, void*) override;
-
-
-    virtual void		execute(TOP_OutputFormatSpecs* outputFormat, const OP_Inputs* inputs, TOP_Context* context, void* reserved1) override;
+	virtual void		getGeneralInfo(TOP_GeneralInfo*, const OP_Inputs*, void* reserved1) override;
+	virtual bool		getOutputFormat(TOP_OutputFormat*, const OP_Inputs*, void* reserved1) override;
 
 
-    virtual int32_t		getNumInfoCHOPChans(void *reserved1) override;
-    virtual void		getInfoCHOPChan(int32_t index,
-								OP_InfoCHOPChan *chan, void* reserved1) override;
+	virtual void		execute(TOP_OutputFormatSpecs*,
+								const OP_Inputs*,
+								TOP_Context *context, void* reserved1) override;
 
-    virtual bool		getInfoDATSize(OP_InfoDATSize *infoSize, void *reserved1) override;
-    virtual void		getInfoDATEntries(int32_t index,
-									int32_t nEntries,
-									OP_InfoDATEntries *entries,
-									void *reserved1) override;
 
-	virtual void		setupParameters(OP_ParameterManager *manager, void *reserved1) override;
-	virtual void		pulsePressed(const char *name, void *reserved1) override;
+	virtual int32_t		getNumInfoCHOPChans(void* reserved1) override;
+	virtual void		getInfoCHOPChan(int32_t index,
+										OP_InfoCHOPChan *chan,
+										void* reserved1) override;
+
+	virtual bool		getInfoDATSize(OP_InfoDATSize *infoSize, void* reserved1) override;
+	virtual void		getInfoDATEntries(int32_t index,
+											int32_t nEntries,
+											OP_InfoDATEntries *entries,
+											void* reserved1) override;
+
+    virtual void		getErrorString(OP_String *error, void* reserved1) override;
+
+	virtual void		setupParameters(OP_ParameterManager *manager, void* reserved1) override;
+	virtual void		pulsePressed(const char *name, void* reserved1) override;
 
 private:
+    void                setupGL();
+	// We don't need to store this pointer, but we do for the example.
+	// The OP_NodeInfo class store information about the node that's using
+	// this instance of the class (like its name).
+	const OP_NodeInfo*	myNodeInfo;
 
-	void				startMoreWork();
-    // We don't need to store this pointer, but we do for the example.
-    // The OP_NodeInfo class store information about the node that's using
-    // this instance of the class (like its name).
-    const OP_NodeInfo*	myNodeInfo;
+	// In this example this value will be incremented each time the execute()
+	// function is called, then passes back to the TOP 
+	int32_t				myExecuteCount;
 
-    // In this example this value will be incremented each time the execute()
-    // function is called, then passes back to the TOP 
-    int					myExecuteCount;
-	double				myBrightness;
+    const char*			myError;
+
+    Program				myProgram;
+
+
+	GLuint vao;
+	GLuint vertex_vbo, color_vbo, ebo;
 
 	int width_, height_;
 	std::shared_ptr<IGpuVideoReader> reader_;

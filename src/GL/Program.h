@@ -17,17 +17,17 @@
 
 #include "../TOP_CPlusPlusBase.h"
 
-class Program
+class Program 
 {
 public:
     Program();
     ~Program();
     Program(const Program&) = delete;
     Program& operator=(const Program&) = delete;
-    const char* build(const char* vertex, const char* fragment);
+	const char *build(const char *vertex, const char *fragment);
     GLuint getName() const;
 private:
-    static GLuint compileShader(const char* source, GLenum type, const char** error);
+    static GLuint compileShader(const char *source, GLenum type, const char **error);
     GLuint myProgram;
 };
 

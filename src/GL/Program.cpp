@@ -13,34 +13,37 @@
 */
 
 #include "Program.h"
+#ifdef __APPLE__
+#include <OpenGL/gl3.h>
+#endif
 
-static const char* compileError = "A shader could not be compiled.";
-static const char* linkError = "A shader could not be linked.";
+static const char *compileError = "A shader could not be compiled.";
+static const char *linkError = "A shader could not be linked.";
 
 Program::Program()
-	: myProgram(0)
+: myProgram(0)
 {
 }
 
 Program::~Program()
 {
-	if (myProgram)
-	{
-		glDeleteProgram(myProgram);
-		myProgram = 0;
-	}
+    if (myProgram)
+    {
+        glDeleteProgram(myProgram);
+        myProgram = 0;
+    }
 }
 
-const char* Program::build(const char* vertex, const char* fragment)
+const char * Program::build(const char *vertex, const char *fragment)
 {
-	const char* error = nullptr;
+	const char *error = nullptr;
 	GLuint vertexShader = 0, fragmentShader = 0;
 
-	if (myProgram)
-	{
-		glDeleteProgram(myProgram);
-		myProgram = 0;
-	}
+    if (myProgram)
+    {
+        glDeleteProgram(myProgram);
+        myProgram = 0;
+    }
 
 	vertexShader = compileShader(vertex, GL_VERTEX_SHADER, &error);
 	if (error == nullptr)
@@ -84,29 +87,29 @@ const char* Program::build(const char* vertex, const char* fragment)
 GLuint
 Program::getName() const
 {
-	return myProgram;
+    return myProgram;
 }
 
 GLuint
-Program::compileShader(const char* source, GLenum type, const char** error)
+Program::compileShader(const char *source, GLenum type, const char **error)
 {
-	GLuint shader = glCreateShader(type);
-	glShaderSource(shader, 1, &source, nullptr);
-	glCompileShader(shader);
+    GLuint shader = glCreateShader(type);
+    glShaderSource(shader, 1, &source, nullptr);
+    glCompileShader(shader);
 
-	GLint status;
-	glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
-	if (status == GL_FALSE)
-	{
-		*error = compileError;
+    GLint status;
+    glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
+    if (status == GL_FALSE)
+    {
+        *error = compileError;
 
-		glDeleteShader(shader);
-		shader = 0;
-	}
-	else
-	{
-		*error = nullptr;
-	}
+        glDeleteShader(shader);
+        shader = 0;
+    }
+    else
+    {
+        *error = nullptr;
+    }
 
-	return shader;
+    return shader;
 }
