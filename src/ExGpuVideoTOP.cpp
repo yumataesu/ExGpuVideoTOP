@@ -17,26 +17,6 @@
 #include <assert.h>
 #include <cstdio>
 
-static const char* vertexShader = "#version 330\n\
-layout(location = 0) in vec3 position; \
-layout(location = 1) in vec2 texcoord; \
-out vec2 v_texcoord; \
-void main() { \
-	v_texcoord = vec2(texcoord.x, 1.0 - texcoord.y); \
-    gl_Position = vec4(position.xyz, 1); \
-}";
-
-static const char* fragmentShader = "#version 330\n\
-uniform sampler2D u_src; \
-in vec2 v_texcoord; \
-out vec4 finalColor; \
-void main() { \
-    vec4 color = texture(u_src, v_texcoord); \
-    finalColor = color; \
-}";
-
-static const char* uniformError = "A uniform location could not be found.";
-
 // These functions are basic C function, which the DLL loader can find
 // much easier than finding a C++ Class.
 // The DLLEXPORT prefix is needed so the compile exports these functions from the .dll
@@ -107,18 +87,15 @@ extern "C"
 
 
 ExGpuVideoTOP::ExGpuVideoTOP(const OP_NodeInfo* info, TOP_Context* context)
-	: myNodeInfo(info)
+	: node_info(info)
 	, isLoaded_(false)
 	, width_(0.f)
 	, height_(0.f)
-	, myExecuteCount(0)
+	, exec_count_(0)
 	, frame_(0)
-	, _frameCount(0)
+	, frame_count_(0)
 {
 
-#ifdef _WIN32
-	// GLEW is global static function pointers, only needs to be inited once,
-	// and only on Windows.
 	static bool needGLEWInit = true;
 	if (needGLEWInit)
 	{
@@ -127,7 +104,6 @@ ExGpuVideoTOP::ExGpuVideoTOP(const OP_NodeInfo* info, TOP_Context* context)
 		glewInit();
 		context->endGLCommands();
 	}
-#endif
 
 	//// If you wanted to do other GL initialization inside this constructor, you could
 	//// uncomment these lines and do the work between the begin/end
@@ -140,8 +116,7 @@ ExGpuVideoTOP::ExGpuVideoTOP(const OP_NodeInfo* info, TOP_Context* context)
 ExGpuVideoTOP::~ExGpuVideoTOP()
 {}
 
-void
-ExGpuVideoTOP::getGeneralInfo(TOP_GeneralInfo* ginfo, const OP_Inputs* inputs, void* reserved1)
+void ExGpuVideoTOP::getGeneralInfo(TOP_GeneralInfo* ginfo, const OP_Inputs* inputs, void* reserved1)
 {
 	// Setting cookEveryFrame to true causes the TOP to cook every frame even
 	// if none of its inputs/parameters are changing. Set it to false if it
@@ -149,8 +124,7 @@ ExGpuVideoTOP::getGeneralInfo(TOP_GeneralInfo* ginfo, const OP_Inputs* inputs, v
 	ginfo->cookEveryFrame = true;
 }
 
-bool
-ExGpuVideoTOP::getOutputFormat(TOP_OutputFormat* format, const OP_Inputs* inputs, void* reserved1)
+bool ExGpuVideoTOP::getOutputFormat(TOP_OutputFormat* format, const OP_Inputs* inputs, void* reserved1)
 {
 	// In this function we could assign variable values to 'format' to specify
 	// the pixel format/resolution etc that we want to output to.
@@ -161,36 +135,36 @@ ExGpuVideoTOP::getOutputFormat(TOP_OutputFormat* format, const OP_Inputs* inputs
 }
 
 
-void
-ExGpuVideoTOP::execute(TOP_OutputFormatSpecs* outputFormat,
-	const OP_Inputs* inputs,
-	TOP_Context* context,
-	void* reserved1)
+void ExGpuVideoTOP::execute(TOP_OutputFormatSpecs* outputFormat, 
+							const OP_Inputs* inputs,
+							TOP_Context* context, 
+							void* reserved1)
 {
 
-	int width = outputFormat->width;
-	int height = outputFormat->height;
+	int w = outputFormat->width;
+	int h = outputFormat->height;
 
-	file = inputs->getParFilePath("File");
+	mode_ = (Mode)inputs->getParInt("Loadmode");
+	filepath = inputs->getParFilePath("File");
 
 	context->beginGLCommands();
-	glViewport(0, 0, width, height);
+	glViewport(0, 0, w, h);
 	glClearColor(0.0, 0.0, 0.0, 0.0);
 	glClear(GL_COLOR_BUFFER_BIT);
 
-	if (isLoaded_) 
+	if (isLoaded_)
 	{
-		//setFrame
-		frame_ = std::max(frame_, 0);
-		frame_ = std::min(frame_, (int)_frameCount - 1);
-		_videoTexture->updateCPU(frame_);
-		_videoTexture->uploadGPU();
+		frame_ += fps_ / 60.f;
+		frame_ = std::fmodf(frame_, (float)frame_count_ - 1.f);
 
-		glUseProgram(myProgram.getName());
+		video_texture_->updateCPU(frame_);
+		video_texture_->uploadGPU();
 
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, _videoTexture->getTexture());
-		glUniform1i(glGetUniformLocation(myProgram.getName(), "u_src"), 1);
+		glUseProgram(shader_prg.getName());
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, video_texture_->getTexture());
+		glUniform1i(glGetUniformLocation(shader_prg.getName(), "u_src"), 0);
 
 		glBindVertexArray(vao);
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
@@ -200,34 +174,23 @@ ExGpuVideoTOP::execute(TOP_OutputFormatSpecs* outputFormat,
 
 	context->endGLCommands();
 
-	frame_++;
-	frame_ = frame_ % ((int)_frameCount - 1);
-	myExecuteCount++;
+	exec_count_++;
 }
 
-int32_t
-ExGpuVideoTOP::getNumInfoCHOPChans(void* reserved1)
+int32_t ExGpuVideoTOP::getNumInfoCHOPChans(void* reserved1)
 {
 	// We return the number of channel we want to output to any Info CHOP
 	// connected to the TOP. In this example we are just going to send one channel.
-	return 2;
+	return 0;
 }
 
-void
-ExGpuVideoTOP::getInfoCHOPChan(int32_t index, OP_InfoCHOPChan* chan, void* reserved1)
+void ExGpuVideoTOP::getInfoCHOPChan(int32_t index, OP_InfoCHOPChan* chan, void* reserved1)
 {
 	// This function will be called once for each channel we said we'd want to return
 	// In this example it'll only be called once.
-
-	if (index == 0)
-	{
-		chan->name->setString("executeCount");
-		chan->value = (float)myExecuteCount;
-	}
 }
 
-bool
-ExGpuVideoTOP::getInfoDATSize(OP_InfoDATSize* infoSize, void* reserved1)
+bool ExGpuVideoTOP::getInfoDATSize(OP_InfoDATSize* infoSize, void* reserved1)
 {
 	infoSize->rows = 2;
 	infoSize->cols = 2;
@@ -237,8 +200,7 @@ ExGpuVideoTOP::getInfoDATSize(OP_InfoDATSize* infoSize, void* reserved1)
 	return true;
 }
 
-void
-ExGpuVideoTOP::getInfoDATEntries(int32_t index,
+void ExGpuVideoTOP::getInfoDATEntries(int32_t index,
 	int32_t nEntries,
 	OP_InfoDATEntries* entries,
 	void* reserved1)
@@ -247,44 +209,48 @@ ExGpuVideoTOP::getInfoDATEntries(int32_t index,
 
 	if (index == 0)
 	{
-		// Set the value for the first column
-#ifdef _WIN32
 		strcpy_s(tempBuffer, "executeCount");
-#else // macOS
-		strlcpy(tempBuffer, "executeCount", sizeof(tempBuffer));
-#endif
 		entries->values[0]->setString(tempBuffer);
 
-		// Set the value for the second column
-#ifdef _WIN32
-		sprintf_s(tempBuffer, "%d", myExecuteCount);
-#else // macOS
-		snprintf(tempBuffer, sizeof(tempBuffer), "%d", myExecuteCount);
-#endif
+		sprintf_s(tempBuffer, "%d", exec_count_);
 		entries->values[1]->setString(tempBuffer);
 	}
 }
 
-void
-ExGpuVideoTOP::getErrorString(OP_String* error, void* reserved1)
+void ExGpuVideoTOP::getErrorString(OP_String* error, void* reserved1)
 {
-	error->setString(myError);
+	error->setString(shader_err);
 }
 
-void
-ExGpuVideoTOP::setupParameters(OP_ParameterManager* manager, void* reserved1)
+void ExGpuVideoTOP::setupParameters(OP_ParameterManager* manager, void* reserved1)
 {
 
-	// Unload pulse
-	// shape
+	// file
 	{
 		OP_StringParameter	sp;
 
 		sp.name = "File";
 		sp.label = "File";
-		sp.defaultValue = "Sine";
+		sp.page = "Play";
+		sp.defaultValue = "None";
 
 		OP_ParAppendResult res = manager->appendFile(sp);
+		assert(res == OP_ParAppendResult::Success);
+	}
+
+	// load mode
+	{
+		OP_StringParameter	sp;
+
+		sp.name = "Loadmode";
+		sp.label = "Load Mode";
+		sp.page = "Play";
+		sp.defaultValue = "Streamingfromstrage";
+
+		const char* names[] = { "Streamingfromstrage", "Streamingfromvpumemory", "Streamingfromcpumemorydecompressed", "Ongpumemory" };
+		const char* labels[] = { "Streaming From Strage", "Streaming From CPU Memory", "Streaming From CPU Memory Decompressed", "On GPU Memory" };
+
+		OP_ParAppendResult res = manager->appendMenu(sp, 4, names, labels);
 		assert(res == OP_ParAppendResult::Success);
 	}
 
@@ -292,8 +258,9 @@ ExGpuVideoTOP::setupParameters(OP_ParameterManager* manager, void* reserved1)
 	{
 		OP_NumericParameter	np;
 
-		np.name = "Load";
-		np.label = "Load";
+		np.name = "Reload";
+		np.label = "ReLoad";
+		np.page = "Play";
 
 		OP_ParAppendResult res = manager->appendPulse(np);
 		assert(res == OP_ParAppendResult::Success);
@@ -305,7 +272,8 @@ ExGpuVideoTOP::setupParameters(OP_ParameterManager* manager, void* reserved1)
 		OP_NumericParameter	np;
 
 		np.name = "Unload";
-		np.label = "Unload";
+		np.label = "UnLoad";
+		np.page = "Play";
 
 		OP_ParAppendResult res = manager->appendPulse(np);
 		assert(res == OP_ParAppendResult::Success);
@@ -313,42 +281,99 @@ ExGpuVideoTOP::setupParameters(OP_ParameterManager* manager, void* reserved1)
 
 }
 
-void
-ExGpuVideoTOP::pulsePressed(const char* name, void* reserved1)
+void ExGpuVideoTOP::pulsePressed(const char* name, void* reserved1)
 {
-
-	if (strcmp(name, "Load") == 0 && !isLoaded_)
-	{	
-		reader_ = std::make_shared<GpuVideoReader>(file, false);
-		_videoTexture = std::make_shared<GpuVideoStreamingTexture>(reader_, GL_LINEAR, GL_CLAMP_TO_EDGE);
-
-		width_ = reader_->getWidth();
-		height_ = reader_->getHeight();
-		_frameCount = reader_->getFrameCount();
-
-		std::cout << "width : " << width_ << std::endl;
-		std::cout << "header : " << height_ << std::endl;
-		std::cout << "frame count : " << reader_->getFrameCount() << std::endl;
-		std::cout << "fps : " << reader_->getFramePerSecond() << std::endl;
-		std::cout << "==================" << std::endl;
-
-		isLoaded_ = true;
+	if (strcmp(name, "Reload") == 0 && !isLoaded_)
+	{
+		reload();
 	}
 
 
 	if (strcmp(name, "Unload") == 0 && isLoaded_)
 	{
-		std::cout << "pulsePressed : " << name << std::endl;
-		isLoaded_ = false;
+		unload();
 	}
 }
 
+
+void ExGpuVideoTOP::reload() 
+{
+	std::thread t;
+	switch (mode_)
+	{
+		case GPU_VIDEO_STREAMING_FROM_STORAGE:
+		{
+			t = std::move(std::thread([this]() {
+				reader_ = std::make_shared<GpuVideoReader>(filepath, false);
+			}));
+			t.join();
+			video_texture_ = std::make_shared<GpuVideoStreamingTexture>(reader_, GL_LINEAR, GL_CLAMP_TO_EDGE);
+			break;
+		}
+
+		case GPU_VIDEO_STREAMING_FROM_CPU_MEMORY:
+		{
+			t = std::move(std::thread([this]() {
+				reader_ = std::make_shared<GpuVideoReader>(filepath, true);
+			}));
+			t.join();
+			video_texture_ = std::make_shared<GpuVideoStreamingTexture>(reader_, GL_LINEAR, GL_CLAMP_TO_EDGE);
+			break;
+		}
+
+		case GPU_VIDEO_STREAMING_FROM_CPU_MEMORY_DECOMPRESSED:
+		{
+			t = std::move(std::thread([this]() {
+				reader_ = std::make_shared<GpuVideoReaderDecompressed>(std::make_shared<GpuVideoReader>(filepath, false));
+			}));
+			t.join();
+			video_texture_ = std::make_shared<GpuVideoStreamingTexture>(reader_, GL_LINEAR, GL_CLAMP_TO_EDGE);
+			break;
+		}
+
+		case GPU_VIDEO_ON_GPU_MEMORY:
+		{
+			t = std::move(std::thread([this]() {
+				reader_ = std::make_shared<GpuVideoReader>(filepath, false);
+			}));
+			t.join();
+			video_texture_ = std::make_shared<GpuVideoOnGpuMemoryTexture>(reader_, GL_LINEAR, GL_CLAMP_TO_EDGE);
+			break;
+		}
+	}
+
+	width_ = reader_->getWidth();
+	height_ = reader_->getHeight();
+	frame_count_ = reader_->getFrameCount();
+	fps_ = reader_->getFramePerSecond();
+
+	//std::cout << "width : " << width_ << std::endl;
+	//std::cout << "header : " << height_ << std::endl;
+	//std::cout << "frame count : " << reader_->getFrameCount() << std::endl;
+	//std::cout << "fps : " << reader_->getFramePerSecond() << std::endl;
+	//std::cout << "==================" << std::endl;
+
+	isLoaded_ = true;
+}
+
+void ExGpuVideoTOP::unload() 
+{
+	video_texture_ = std::shared_ptr<IGpuVideoTexture>();
+	width_ = 0;
+	height_ = 0;
+	frame_count_ = 0;
+	fps_ = 0;
+	frame_ = 0;
+	isLoaded_ = false;
+}
+
+
 void ExGpuVideoTOP::setupGL()
 {
-	myError = myProgram.build(vertexShader, fragmentShader);
+	shader_err = shader_prg.build(vertexShader, fragmentShader);
 
 	// If an error occurred creating myProgram, we can't proceed
-	if (myError == nullptr)
+	if (shader_err == nullptr)
 	{
 
 		GLfloat vertices[] = {

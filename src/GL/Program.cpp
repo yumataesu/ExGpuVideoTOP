@@ -21,16 +21,16 @@ static const char *compileError = "A shader could not be compiled.";
 static const char *linkError = "A shader could not be linked.";
 
 Program::Program()
-: myProgram(0)
+: shader_prg(0)
 {
 }
 
 Program::~Program()
 {
-    if (myProgram)
+    if (shader_prg)
     {
-        glDeleteProgram(myProgram);
-        myProgram = 0;
+        glDeleteProgram(shader_prg);
+        shader_prg = 0;
     }
 }
 
@@ -39,10 +39,10 @@ const char * Program::build(const char *vertex, const char *fragment)
 	const char *error = nullptr;
 	GLuint vertexShader = 0, fragmentShader = 0;
 
-    if (myProgram)
+    if (shader_prg)
     {
-        glDeleteProgram(myProgram);
-        myProgram = 0;
+        glDeleteProgram(shader_prg);
+        shader_prg = 0;
     }
 
 	vertexShader = compileShader(vertex, GL_VERTEX_SHADER, &error);
@@ -53,9 +53,9 @@ const char * Program::build(const char *vertex, const char *fragment)
 
 	if (error == nullptr)
 	{
-		myProgram = glCreateProgram();
-		glAttachShader(myProgram, vertexShader);
-		glAttachShader(myProgram, fragmentShader);
+		shader_prg = glCreateProgram();
+		glAttachShader(shader_prg, vertexShader);
+		glAttachShader(shader_prg, fragmentShader);
 	}
 
 	if (vertexShader)
@@ -69,15 +69,15 @@ const char * Program::build(const char *vertex, const char *fragment)
 
 	if (error == nullptr)
 	{
-		glLinkProgram(myProgram);
+		glLinkProgram(shader_prg);
 
 		GLint status;
-		glGetProgramiv(myProgram, GL_LINK_STATUS, &status);
+		glGetProgramiv(shader_prg, GL_LINK_STATUS, &status);
 		if (status == GL_FALSE)
 		{
 			error = linkError;
-			glDeleteProgram(myProgram);
-			myProgram = 0;
+			glDeleteProgram(shader_prg);
+			shader_prg = 0;
 		}
 	}
 
@@ -87,7 +87,7 @@ const char * Program::build(const char *vertex, const char *fragment)
 GLuint
 Program::getName() const
 {
-    return myProgram;
+    return shader_prg;
 }
 
 GLuint

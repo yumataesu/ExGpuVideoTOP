@@ -86,21 +86,26 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\ExtremeGpuVideo\GpuVideoOnGpuMemoryTexture.cpp" />
     <ClCompile Include="src\ExtremeGpuVideo\GpuVideoReader.cpp" />
     <ClCompile Include="libs\GL\glew.c" />
     <ClCompile Include="libs\GL\glewinfo.c" />
     <ClCompile Include="src\ExGpuVideoTOP.cpp" />
+    <ClCompile Include="src\ExtremeGpuVideo\GpuVideoReaderDecompressed.cpp" />
     <ClCompile Include="src\ExtremeGpuVideo\GpuVideoStreamingTexture.cpp" />
     <ClCompile Include="src\GL\Program.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\ExtremeGpuVideo\GpuVideo.h" />
     <ClInclude Include="src\ExtremeGpuVideo\GpuVideoIO.h" />
+    <ClInclude Include="src\ExtremeGpuVideo\GpuVideoOnGpuMemoryTexture.h" />
     <ClInclude Include="src\ExtremeGpuVideo\GpuVideoReader.h" />
     <ClInclude Include="libs\GL\glew.h" />
     <ClInclude Include="libs\GL\wglew.h" />
+    <ClInclude Include="src\ExtremeGpuVideo\GpuVideoReaderDecompressed.h" />
     <ClInclude Include="src\ExtremeGpuVideo\GpuVideoStreamingTexture.h" />
     <ClInclude Include="src\ExtremeGpuVideo\GpuVideoTexture.h" />
+    <ClInclude Include="src\ExtremeGpuVideo\Util.h" />
     <ClInclude Include="src\GL_Extensions.h" />
     <ClInclude Include="src\ExGpuVideoTOP.h" />
     <ClInclude Include="src\GL\Program.h" />

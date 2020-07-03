@@ -28,7 +28,7 @@ public:
     GLuint getName() const;
 private:
     static GLuint compileShader(const char *source, GLenum type, const char **error);
-    GLuint myProgram;
+    GLuint shader_prg;
 };
 
 #endif /* Program_h */

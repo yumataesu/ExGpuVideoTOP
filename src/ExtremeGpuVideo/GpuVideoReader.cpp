@@ -23,18 +23,18 @@ GpuVideoReader::GpuVideoReader(const char* path, bool onMemory) {
 #define R(v) if(_io->read(&v, sizeof(v)) != sizeof(v)) { assert(0); }
     R(_width);
     R(_height);
-    R(_frameCount);
+    R(frame_count_);
     R(_framePerSecond);
     R(_format);
     R(_frameBytes);
 #undef R
 
     // ƒAƒhƒŒƒX‚ð“Ç‚Þ
-    _lz4Blocks.resize(_frameCount);
+    _lz4Blocks.resize(frame_count_);
     size_t s = sizeof(Lz4Block);
 
-    _io->seek(_rawSize - sizeof(Lz4Block) * _frameCount, SEEK_SET);
-    if (_io->read(_lz4Blocks.data(), sizeof(Lz4Block) * _frameCount) != sizeof(Lz4Block) * _frameCount) {
+    _io->seek(_rawSize - sizeof(Lz4Block) * frame_count_, SEEK_SET);
+    if (_io->read(_lz4Blocks.data(), sizeof(Lz4Block) * frame_count_) != sizeof(Lz4Block) * frame_count_) {
         assert(0);
     }
 

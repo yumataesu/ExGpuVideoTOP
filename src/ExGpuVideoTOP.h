@@ -13,15 +13,20 @@
 */
 
 #include <iostream>
+#include <thread>
 
 #include "TOP_CPlusPlusBase.h"
 #include "GL/Program.h"
 
+#include "ExtremeGpuVideo/Util.h"
 #include "ExtremeGpuVideo/GpuVideo.h"
 #include "ExtremeGpuVideo/GpuVideoIO.h"
 #include "ExtremeGpuVideo/GpuVideoReader.h"
+#include "ExtremeGpuVideo/GpuVideoReaderDecompressed.h"
 #include "ExtremeGpuVideo/GpuVideoTexture.h"
 #include "ExtremeGpuVideo/GpuVideoStreamingTexture.h"
+#include "ExtremeGpuVideo/GpuVideoOnGpuMemoryTexture.h"
+
 
 class ExGpuVideoTOP : public TOP_CPlusPlusBase
 {
@@ -56,31 +61,27 @@ public:
 
 private:
     void                setupGL();
-	// We don't need to store this pointer, but we do for the example.
-	// The OP_NodeInfo class store information about the node that's using
-	// this instance of the class (like its name).
-	const OP_NodeInfo*	myNodeInfo;
+	void				reload();
+	void				unload();
 
-	// In this example this value will be incremented each time the execute()
-	// function is called, then passes back to the TOP 
-	int32_t				myExecuteCount;
+	const OP_NodeInfo*	node_info;
 
-    const char*			myError;
+	int32_t				exec_count_;
 
-    Program				myProgram;
+    Program				shader_prg;
+    const char*			shader_err;
 
+	GLuint				vao;
+	GLuint				vertex_vbo, texcoord_vbo, ebo;
 
+	bool				isLoaded_;
+	int					width_, height_;
+	int					frame_count_;
+	float				fps_;
+	float				frame_;
+	Mode				mode_;
+	const char*			filepath;
 
-	GLuint vao;
-	GLuint vertex_vbo, texcoord_vbo, ebo;
-
-	int width_, height_;
-	int _frameCount;
 	std::shared_ptr<IGpuVideoReader> reader_;
-	bool isLoaded_;
-
-	std::shared_ptr<IGpuVideoTexture> _videoTexture;
-	int frame_;
-	const char* file;
-
+	std::shared_ptr<IGpuVideoTexture> video_texture_;
 };

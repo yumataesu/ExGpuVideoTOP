@@ -43,7 +43,7 @@ public:
 
     uint32_t getWidth() const { return _width; }
     uint32_t getHeight() const { return _height; }
-    uint32_t getFrameCount() const { return _frameCount; }
+    uint32_t getFrameCount() const { return frame_count_; }
     float getFramePerSecond() const { return _framePerSecond; }
     GPU_COMPRESS getFormat() const { return _format; }
     uint32_t getFrameBytes() const { return _frameBytes; }
@@ -57,7 +57,7 @@ private:
 
     uint32_t _width = 0;
     uint32_t _height = 0;
-    uint32_t _frameCount = 0;
+    uint32_t frame_count_ = 0;
     float _framePerSecond = 0;
     GPU_COMPRESS _format = GPU_COMPRESS_DXT1;
     uint32_t _frameBytes = 0;
