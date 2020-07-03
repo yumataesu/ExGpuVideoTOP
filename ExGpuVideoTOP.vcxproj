@@ -90,6 +90,7 @@
     <ClCompile Include="libs\GL\glew.c" />
     <ClCompile Include="libs\GL\glewinfo.c" />
     <ClCompile Include="src\ExGpuVideoTOP.cpp" />
+    <ClCompile Include="src\ExtremeGpuVideo\GpuVideoStreamingTexture.cpp" />
     <ClCompile Include="src\GL\Program.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -98,6 +99,8 @@
     <ClInclude Include="src\ExtremeGpuVideo\GpuVideoReader.h" />
     <ClInclude Include="libs\GL\glew.h" />
     <ClInclude Include="libs\GL\wglew.h" />
+    <ClInclude Include="src\ExtremeGpuVideo\GpuVideoStreamingTexture.h" />
+    <ClInclude Include="src\ExtremeGpuVideo\GpuVideoTexture.h" />
     <ClInclude Include="src\GL_Extensions.h" />
     <ClInclude Include="src\ExGpuVideoTOP.h" />
     <ClInclude Include="src\GL\Program.h" />

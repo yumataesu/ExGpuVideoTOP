@@ -20,6 +20,8 @@
 #include "ExtremeGpuVideo/GpuVideo.h"
 #include "ExtremeGpuVideo/GpuVideoIO.h"
 #include "ExtremeGpuVideo/GpuVideoReader.h"
+#include "ExtremeGpuVideo/GpuVideoTexture.h"
+#include "ExtremeGpuVideo/GpuVideoStreamingTexture.h"
 
 class ExGpuVideoTOP : public TOP_CPlusPlusBase
 {
@@ -68,11 +70,17 @@ private:
     Program				myProgram;
 
 
+
 	GLuint vao;
-	GLuint vertex_vbo, color_vbo, ebo;
+	GLuint vertex_vbo, texcoord_vbo, ebo;
 
 	int width_, height_;
+	int _frameCount;
 	std::shared_ptr<IGpuVideoReader> reader_;
 	bool isLoaded_;
+
+	std::shared_ptr<IGpuVideoTexture> _videoTexture;
+	int frame_;
+	const char* file;
 
 };

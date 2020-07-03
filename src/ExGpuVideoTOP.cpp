@@ -15,26 +15,24 @@
 #include "ExGpuVideoTOP.h"
 
 #include <assert.h>
-#ifdef __APPLE__
-#include <OpenGL/gl3.h>
-#include <string.h>
-#endif
 #include <cstdio>
 
 static const char* vertexShader = "#version 330\n\
 layout(location = 0) in vec3 position; \
-layout(location = 1) in vec4 color; \
-out vec4 v_color; \
+layout(location = 1) in vec2 texcoord; \
+out vec2 v_texcoord; \
 void main() { \
-	v_color = color; \
+	v_texcoord = vec2(texcoord.x, 1.0 - texcoord.y); \
     gl_Position = vec4(position.xyz, 1); \
 }";
 
 static const char* fragmentShader = "#version 330\n\
-in vec4 v_color; \
+uniform sampler2D u_src; \
+in vec2 v_texcoord; \
 out vec4 finalColor; \
 void main() { \
-    finalColor = v_color; \
+    vec4 color = texture(u_src, v_texcoord); \
+    finalColor = color; \
 }";
 
 static const char* uniformError = "A uniform location could not be found.";
@@ -114,6 +112,8 @@ ExGpuVideoTOP::ExGpuVideoTOP(const OP_NodeInfo* info, TOP_Context* context)
 	, width_(0.f)
 	, height_(0.f)
 	, myExecuteCount(0)
+	, frame_(0)
+	, _frameCount(0)
 {
 
 #ifdef _WIN32
@@ -124,7 +124,6 @@ ExGpuVideoTOP::ExGpuVideoTOP(const OP_NodeInfo* info, TOP_Context* context)
 	{
 		needGLEWInit = false;
 		context->beginGLCommands();
-		// Setup all our GL extensions using GLEW
 		glewInit();
 		context->endGLCommands();
 	}
@@ -172,22 +171,37 @@ ExGpuVideoTOP::execute(TOP_OutputFormatSpecs* outputFormat,
 	int width = outputFormat->width;
 	int height = outputFormat->height;
 
-	context->beginGLCommands();
+	file = inputs->getParFilePath("File");
 
+	context->beginGLCommands();
 	glViewport(0, 0, width, height);
 	glClearColor(0.0, 0.0, 0.0, 0.0);
 	glClear(GL_COLOR_BUFFER_BIT);
 
-	glUseProgram(myProgram.getName());
-	glBindVertexArray(vao);
-	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+	if (isLoaded_) 
+	{
+		//setFrame
+		frame_ = std::max(frame_, 0);
+		frame_ = std::min(frame_, (int)_frameCount - 1);
+		_videoTexture->updateCPU(frame_);
+		_videoTexture->uploadGPU();
 
-	glBindVertexArray(0);
-	glUseProgram(0);
+		glUseProgram(myProgram.getName());
+
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, _videoTexture->getTexture());
+		glUniform1i(glGetUniformLocation(myProgram.getName(), "u_src"), 1);
+
+		glBindVertexArray(vao);
+		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+		glBindVertexArray(0);
+		glUseProgram(0);
+	}
 
 	context->endGLCommands();
 
-
+	frame_++;
+	frame_ = frame_ % ((int)_frameCount - 1);
 	myExecuteCount++;
 }
 
@@ -260,6 +274,20 @@ ExGpuVideoTOP::getErrorString(OP_String* error, void* reserved1)
 void
 ExGpuVideoTOP::setupParameters(OP_ParameterManager* manager, void* reserved1)
 {
+
+	// Unload pulse
+	// shape
+	{
+		OP_StringParameter	sp;
+
+		sp.name = "File";
+		sp.label = "File";
+		sp.defaultValue = "Sine";
+
+		OP_ParAppendResult res = manager->appendFile(sp);
+		assert(res == OP_ParAppendResult::Success);
+	}
+
 	// Load pulse
 	{
 		OP_NumericParameter	np;
@@ -290,13 +318,13 @@ ExGpuVideoTOP::pulsePressed(const char* name, void* reserved1)
 {
 
 	if (strcmp(name, "Load") == 0 && !isLoaded_)
-	{
-		std::cout << "pulsePressed : " << name << std::endl;
-		std::string path = "Transvolt_12.gvintermediate.gv";
-		reader_ = std::make_shared<GpuVideoReader>(path.c_str(), false);
+	{	
+		reader_ = std::make_shared<GpuVideoReader>(file, false);
+		_videoTexture = std::make_shared<GpuVideoStreamingTexture>(reader_, GL_LINEAR, GL_CLAMP_TO_EDGE);
 
 		width_ = reader_->getWidth();
 		height_ = reader_->getHeight();
+		_frameCount = reader_->getFrameCount();
 
 		std::cout << "width : " << width_ << std::endl;
 		std::cout << "header : " << height_ << std::endl;
@@ -330,11 +358,11 @@ void ExGpuVideoTOP::setupGL()
 			-1.0f, 1.0f, 0.0f
 		};
 
-		GLfloat colors[] = {
-			1.0f, 1.0f, 0.0f, 1.0f,
-			0.5f, 1.0f, 0.0f, 1.0f,
-			0.0f, 0.0f, 1.0f, 1.0f,
-			0.0f, 1.0f, 1.0f, 1.0f
+		GLfloat texcoords[] = {
+			0.0f, 0.0f,
+			1.0f, 0.0f,
+			1.0f, 1.0f,
+			0.0f, 1.0f
 		};
 
 		int indices[] = { 0, 1, 2, 0, 3, 2 };
@@ -342,12 +370,11 @@ void ExGpuVideoTOP::setupGL()
 
 		glGenVertexArrays(1, &vao);
 		glGenBuffers(1, &vertex_vbo);
-		glGenBuffers(1, &color_vbo);
+		glGenBuffers(1, &texcoord_vbo);
 		glGenBuffers(1, &ebo);
 
 
 		glBindVertexArray(vao);
-
 
 		// Position attribute
 		glBindBuffer(GL_ARRAY_BUFFER, vertex_vbo);
@@ -355,11 +382,11 @@ void ExGpuVideoTOP::setupGL()
 		glEnableVertexAttribArray(0);
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
 
-		// Color attribute
-		glBindBuffer(GL_ARRAY_BUFFER, color_vbo);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(colors), colors, GL_STATIC_DRAW);
+		// Texcoord attribute
+		glBindBuffer(GL_ARRAY_BUFFER, texcoord_vbo);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(texcoords), texcoords, GL_STATIC_DRAW);
 		glEnableVertexAttribArray(1);
-		glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (GLvoid*)0);
+		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), (GLvoid*)0);
 
 		// Element Array Buffer
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
