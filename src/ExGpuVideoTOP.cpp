@@ -287,10 +287,16 @@ void ExGpuVideoTOP::setupParameters(OP_ParameterManager* manager, void* reserved
 
 void ExGpuVideoTOP::pulsePressed(const char* name, void* reserved1)
 {
-	if (strcmp(name, "Reload") == 0 && !isLoaded_)
+	if (strcmp(name, "Reload") == 0)
 	{
-		unload();
-		load();
+		std::string path(filepath);
+		std::string ext(".gv");
+		if (path.size() >= ext.size() &&
+			path.find(ext, path.size() - ext.size()) != std::string::npos)
+		{
+			unload();
+			load();
+		}
 	}
 
 
