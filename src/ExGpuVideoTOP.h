@@ -61,7 +61,7 @@ public:
 
 private:
     void                setupGL();
-	void				reload();
+	void				load();
 	void				unload();
 
 	const OP_NodeInfo*	node_info;

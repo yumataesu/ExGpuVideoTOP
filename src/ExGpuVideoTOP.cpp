@@ -36,7 +36,7 @@ extern "C"
 		// The opType is the unique name for this TOP. It must start with a 
 		// capital A-Z character, and all the following characters must lower case
 		// or numbers (a-z, 0-9)
-		info->customOPInfo.opType->setString("ExGpuVideoPlayer");
+		info->customOPInfo.opType->setString("Exgpuvideoplayer");
 
 		// The opLabel is the text that will show up in the OP Create Dialog
 		info->customOPInfo.opLabel->setString("ExGpu VideoPlayer");
@@ -92,8 +92,12 @@ ExGpuVideoTOP::ExGpuVideoTOP(const OP_NodeInfo* info, TOP_Context* context)
 	, width_(0.f)
 	, height_(0.f)
 	, exec_count_(0)
-	, frame_(0)
+	, frame_(0.f)
+	, fps_(0.f)
 	, frame_count_(0)
+	, filepath(nullptr)
+	, reader_(nullptr)
+	, video_texture_(nullptr)
 {
 
 	static bool needGLEWInit = true;
@@ -285,7 +289,8 @@ void ExGpuVideoTOP::pulsePressed(const char* name, void* reserved1)
 {
 	if (strcmp(name, "Reload") == 0 && !isLoaded_)
 	{
-		reload();
+		unload();
+		load();
 	}
 
 
@@ -296,7 +301,7 @@ void ExGpuVideoTOP::pulsePressed(const char* name, void* reserved1)
 }
 
 
-void ExGpuVideoTOP::reload() 
+void ExGpuVideoTOP::load() 
 {
 	std::thread t;
 	switch (mode_)
