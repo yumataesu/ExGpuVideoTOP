@@ -83,5 +83,8 @@ private:
 	const char*			filepath;
 
 	std::shared_ptr<IGpuVideoReader> reader_;
-	std::shared_ptr<IGpuVideoTexture> video_texture_;
+	std::unique_ptr<IGpuVideoTexture> video_texture_;
+
+	std::unique_ptr<std::thread> thread_;
+
 };

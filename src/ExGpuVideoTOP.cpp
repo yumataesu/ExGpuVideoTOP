@@ -309,46 +309,45 @@ void ExGpuVideoTOP::pulsePressed(const char* name, void* reserved1)
 
 void ExGpuVideoTOP::load() 
 {
-	std::thread t;
 	switch (mode_)
 	{
 		case GPU_VIDEO_STREAMING_FROM_STORAGE:
 		{
-			t = std::move(std::thread([this]() {
+			thread_ = std::make_unique<std::thread>([this]() {
 				reader_ = std::make_shared<GpuVideoReader>(filepath, false);
-			}));
-			t.join();
-			video_texture_ = std::make_shared<GpuVideoStreamingTexture>(reader_, GL_LINEAR, GL_CLAMP_TO_EDGE);
+			});
+			thread_->join();
+			video_texture_ = std::make_unique<GpuVideoStreamingTexture>(reader_, GL_LINEAR, GL_CLAMP_TO_EDGE);
 			break;
 		}
 
 		case GPU_VIDEO_STREAMING_FROM_CPU_MEMORY:
 		{
-			t = std::move(std::thread([this]() {
+			thread_ = std::make_unique<std::thread>([this]() {
 				reader_ = std::make_shared<GpuVideoReader>(filepath, true);
-			}));
-			t.join();
-			video_texture_ = std::make_shared<GpuVideoStreamingTexture>(reader_, GL_LINEAR, GL_CLAMP_TO_EDGE);
+			});
+			thread_->join();
+			video_texture_ = std::make_unique<GpuVideoStreamingTexture>(reader_, GL_LINEAR, GL_CLAMP_TO_EDGE);
 			break;
 		}
 
 		case GPU_VIDEO_STREAMING_FROM_CPU_MEMORY_DECOMPRESSED:
 		{
-			t = std::move(std::thread([this]() {
+			thread_ = std::make_unique<std::thread>([this]() {
 				reader_ = std::make_shared<GpuVideoReaderDecompressed>(std::make_shared<GpuVideoReader>(filepath, false));
-			}));
-			t.join();
-			video_texture_ = std::make_shared<GpuVideoStreamingTexture>(reader_, GL_LINEAR, GL_CLAMP_TO_EDGE);
+			});
+			thread_->join();
+			video_texture_ = std::make_unique<GpuVideoStreamingTexture>(reader_, GL_LINEAR, GL_CLAMP_TO_EDGE);
 			break;
 		}
 
 		case GPU_VIDEO_ON_GPU_MEMORY:
 		{
-			t = std::move(std::thread([this]() {
+			thread_ = std::make_unique<std::thread>([this]() {
 				reader_ = std::make_shared<GpuVideoReader>(filepath, false);
-			}));
-			t.join();
-			video_texture_ = std::make_shared<GpuVideoOnGpuMemoryTexture>(reader_, GL_LINEAR, GL_CLAMP_TO_EDGE);
+			});
+			thread_->join();
+			video_texture_ = std::make_unique<GpuVideoOnGpuMemoryTexture>(reader_, GL_LINEAR, GL_CLAMP_TO_EDGE);
 			break;
 		}
 	}
@@ -369,7 +368,7 @@ void ExGpuVideoTOP::load()
 
 void ExGpuVideoTOP::unload() 
 {
-	video_texture_ = std::shared_ptr<IGpuVideoTexture>();
+	video_texture_ = std::unique_ptr<IGpuVideoTexture>();
 	width_ = 0;
 	height_ = 0;
 	frame_count_ = 0;
