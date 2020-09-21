@@ -73,4 +73,7 @@ private:
 
 	std::unique_ptr<std::thread> thread_;
 
+	std::string current;
+	std::string previous;
+
 };

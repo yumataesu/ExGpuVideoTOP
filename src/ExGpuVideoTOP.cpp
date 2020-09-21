@@ -137,6 +137,13 @@ void ExGpuVideoTOP::execute(TOP_OutputFormatSpecs* outputFormat,
 	mode_ = (Mode)inputs->getParInt("Loadmode");
 	filepath = inputs->getParFilePath("File");
 
+	current = std::string(filepath);
+	if (current != previous)
+	{
+		load();
+	}
+	previous = current;
+
 	context->beginGLCommands();
 	glViewport(0, 0, w, h);
 	glClearColor(0.0, 0.0, 0.0, 0.0);
@@ -295,6 +302,11 @@ void ExGpuVideoTOP::pulsePressed(const char* name, void* reserved1)
 
 void ExGpuVideoTOP::load() 
 {
+	std::string path(filepath);
+	std::string ext(".gv");
+	if (path.size() < ext.size() || path.find(ext, path.size() - ext.size()) == std::string::npos) {
+		return;
+	}
 	switch (mode_)
 	{
 		case GPU_VIDEO_STREAMING_FROM_STORAGE:
