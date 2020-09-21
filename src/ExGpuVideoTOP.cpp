@@ -136,6 +136,7 @@ void ExGpuVideoTOP::execute(TOP_OutputFormatSpecs* outputFormat,
 
 	mode_ = (Mode)inputs->getParInt("Loadmode");
 	filepath = inputs->getParFilePath("File");
+	float speed = inputs->getParDouble("Speed");
 
 	current = std::string(filepath);
 	if (current != previous)
@@ -151,7 +152,7 @@ void ExGpuVideoTOP::execute(TOP_OutputFormatSpecs* outputFormat,
 
 	if (isLoaded_)
 	{
-		frame_ += fps_ / 60.f;
+		frame_ += fps_ / 30.f * speed;
 		frame_ = std::fmodf(frame_, (float)frame_count_ - 1.f);
 
 		video_texture_->updateCPU(frame_);
@@ -232,6 +233,21 @@ void ExGpuVideoTOP::setupParameters(OP_ParameterManager* manager, void* reserved
 		sp.defaultValue = "None";
 
 		OP_ParAppendResult res = manager->appendFile(sp);
+		assert(res == OP_ParAppendResult::Success);
+	}
+
+	// speed
+	{
+		OP_NumericParameter	np;
+
+		np.name = "Speed";
+		np.label = "Speed";
+		np.page = "Play";
+		np.defaultValues[0] = 0.5;
+		np.minSliders[0] = 0.0;
+		np.maxSliders[0] = 2.0;
+
+		OP_ParAppendResult res = manager->appendFloat(np);
 		assert(res == OP_ParAppendResult::Success);
 	}
 
