@@ -111,7 +111,7 @@ void ExGpuVideoTOP::getGeneralInfo(TOP_GeneralInfo* ginfo, const OP_Inputs* inpu
 	// Setting cookEveryFrame to true causes the TOP to cook every frame even
 	// if none of its inputs/parameters are changing. Set it to false if it
 	// only needs to cook when inputs/parameters change.
-	ginfo->cookEveryFrame = true;
+	ginfo->cookEveryFrameIfAsked = true;
 }
 
 bool ExGpuVideoTOP::getOutputFormat(TOP_OutputFormat* format, const OP_Inputs* inputs, void* reserved1)
@@ -279,6 +279,18 @@ void ExGpuVideoTOP::setupParameters(OP_ParameterManager* manager, void* reserved
 		assert(res == OP_ParAppendResult::Success);
 	}
 
+	// SetPosition pulse
+	{
+		OP_NumericParameter	np;
+
+		np.name = "Position";
+		np.label = "Position";
+		np.page = "Play";
+
+		OP_ParAppendResult res = manager->appendPulse(np);
+		assert(res == OP_ParAppendResult::Success);
+	}
+
 
 	// Unload pulse
 	{
@@ -308,6 +320,10 @@ void ExGpuVideoTOP::pulsePressed(const char* name, void* reserved1)
 		}
 	}
 
+	if (strcmp(name, "Position") == 0)
+	{
+		frame_ = 0.f;
+	}
 
 	if (strcmp(name, "Unload") == 0 && isLoaded_)
 	{
