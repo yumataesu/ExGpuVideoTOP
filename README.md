@@ -1,3 +1,7 @@
+<div align="center">
+  <h1>ExGpuVideoTOP</h1>
+</div>
+
 ![ss](https://github.com/yumataesu/ExGpuVideoTOP/blob/master/readme/output.gif)
 
 ## It works with
